@@ -37,7 +37,7 @@ unsigned int calcCmax(std::vector <fsp> &container)
 
 	for (int i = 1; i < container[0].p.size(); ++i) //czasy dla 1 zadnia i reszty maszyn
 	{
-		container[0].s[i] = container[0].c[i-1];
+		container[0].s[i] = container[0].c[i - 1];
 		container[0].c[i] = container[0].p[i];
 	}
 
@@ -45,7 +45,7 @@ unsigned int calcCmax(std::vector <fsp> &container)
 	{
 		for (int i = 1; i < container[0].p.size(); ++i) //czasy dla 1 zadnia i reszty maszyn
 		{
-			container[j].s[i] = std::max(container[j].c[i - 1], container[j-1].c[i - 1]);
+			container[j].s[i] = std::max(container[j].c[i - 1], container[j - 1].c[i - 1]);
 			container[j].c[i] = container[j].p[i];
 		}
 	}
@@ -258,7 +258,7 @@ void sortDynamic(std::vector <fsp> &container)
 						buffer.order.push_back(j);
 					}
 					//zeby nie porownywal z nulem w poprzednim ifie
-					else if (minimum <= buffer.WiTi) 
+					else if (minimum <= buffer.WiTi)
 					{
 						buffer.WiTi = minimum;
 						buffer.order = solution[(i^pointer)].order;
@@ -403,33 +403,68 @@ void printResultsToFile(std::vector <int> &WiTiTi, std::vector <std::string> &fi
 		}
 	}
 }
-void calcPRD(std::vector <int> &WiTiTi, std::vector <double> &PRD)
+void calcPRD(std::vector <int> &WiTiTi, std::vector <float> &PRD)
 {
-	int WiTiTiRef = NULL;
+	std::vector <int> temp;
+	int ref = NULL;
+	const int algorithmCount = 4;
+
 	for (int i = 0; i < WiTiTi.size(); ++i)
 	{
-		if (i % 3 == 0) {
-			WiTiTiRef = WiTiTi[i + 2];
+		if (i % algorithmCount != 0) {
+			temp.push_back(WiTiTi[i]);
 		}
+	}
 
-		PRD.push_back(100 * (WiTiTi[i] - WiTiTiRef) / WiTiTiRef);
+	for (int i = 0; i < temp.size(); ++i)
+	{
+		if (i % (algorithmCount - 1) == 0)
+		{
+			ref = temp[i + (algorithmCount - 2)];
+		}
+		float dTemp = 100.0f * (temp[i] - ref) / ref;
+		PRD.push_back(dTemp);
 	}
 }
 
+void calcPRDMean(std::vector <float> &PRD, std::vector <float> &PRDMean)
+{
+	const int algorithmCount = 3;
+	std::vector <float> sum;
+	std::vector <int> val;
+
+	for (int i = 0; i < algorithmCount; ++i)
+	{
+		sum.push_back(0.0f);
+		val.push_back(i);
+	}
+
+	for (int i = 0; i < PRD.size(); ++i)
+	{
+		if (i % algorithmCount == val[i%algorithmCount])
+		{
+			sum[i % algorithmCount] += PRD[i];
+		}
+	}
+
+	for (int i = 0; i < algorithmCount; ++i)
+	{
+		PRDMean.push_back(sum[i] / (PRD.size() / algorithmCount));
+	}
+}
 int main() {
 
-	std::vector <fsp> container;
+	std::vector <pwd> container;
 	std::vector <int> WiTiTi, sizes;
 	std::vector <std::string> filenames;
 	std::vector <double> times;
-	std::vector <double> PRD;
-
+	std::vector <float> PRD, PRDMean;
 
 	loadFilenames("witi/filenames.txt", filenames);
 	calcEverything(WiTiTi, filenames, sizes, times);
 	calcPRD(WiTiTi, PRD);
-	printResultsToFile(WiTiTi, filenames, sizes, times, PRD);
-
+	calcPRDMean(PRD, PRDMean);
+	printResultsToFile(WiTiTi, filenames, sizes, times, PRD, PRDMean);
 	system("pause");
 	return 0;
 }
