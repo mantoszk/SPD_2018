@@ -8,125 +8,107 @@
 //grupa nr 2
 //[SPD]_pt13_gr2_T3
 
-struct fsp {
-
-	std::vector <int> p, s, c;
-	unsigned int suma = NULL;
-	unsigned int index = NULL;
-};
-
-struct sortD {
-
-	bool operator () (const fsp &a, const fsp &b) const {
-		return a.d < b.d;
-	}
-};
-
-struct sortW {
-
-	bool operator () (const fsp &a, const fsp &b) const {
-		return a.w < b.w;
-	}
-};
-
-unsigned int calcCmax(std::vector <fsp> &container)
+struct vi
 {
-	//czasy dla 1 zadania dla 1 maszyny
-	container[0].s[0] = 0;
-	container[0].c[0] = container[0].p[0];
+	unsigned int value, index;
+};
 
-	for (int i = 1; i < container[0].p.size(); ++i) //czasy dla 1 zadnia i reszty maszyn
-	{
-		container[0].s[i] = container[0].c[i - 1];
-		container[0].c[i] = container[0].p[i];
-	}
+struct fsp
+{
 
-	for (int j = 1; j < container.size(); ++j) //czasy dla pozosta³ych zadañ
+	std::vector <vi> p;
+	std::vector <unsigned int> s, c;
+};
+
+unsigned int calculate(std::vector <fsp> &container)
+{
+	const unsigned int machines = container.size(), tasks = container[0].p.size();
+
+	for (unsigned int i = 0; i < machines; ++i)
 	{
-		for (int i = 1; i < container[0].p.size(); ++i) //czasy dla 1 zadnia i reszty maszyn
+		for (unsigned int j = 0; j < tasks; ++j)
 		{
-			container[j].s[i] = std::max(container[j].c[i - 1], container[j - 1].c[i - 1]);
-			container[j].c[i] = container[j].p[i];
+			container[i].s.push_back(0);
+			container[i].c.push_back(0);
 		}
 	}
-}
 
-const int calcWiti(const std::vector <fsp> &container) {
+	unsigned int startTime = NULL, endTime = NULL;
 
-	int T = 0, C = 0, witiSum = 0;
-	std::vector <int> witiElement;
-
-	for (auto &i : container)
+	for (unsigned int i = 0; i < tasks; ++i)
 	{
-		C += i.p;
-		T = max(C - i.d, 0);
-		witiElement.push_back(i.w*T);
+		if (i == 0)
+		{
+			startTime = 0;
+		}
+		else
+		{
+			startTime = container[0].c[i - 1];
+		}
+		endTime = startTime + container[0].p[i].value;
+
+		container[0].s[i] = startTime;
+		container[0].c[i] = endTime;
+		//std::cout << "StartTime: " << container[0].s[i] << " EndTime: " << container[0].c[i] << std::endl;;
+
+		for (unsigned int j = 1; j < machines; ++j)
+		{
+
+			if (i == 0)
+			{
+				startTime = endTime;
+			}
+			else
+			{
+				startTime = max(container[j].c[i - 1], container[j - 1].c[i]);
+			}
+			endTime = startTime + container[j].p[i].value;
+
+			container[j].s[i] = startTime;
+			container[j].c[i] = endTime;
+			//std::cout << "StartTime: " << container[j].s[i] << " EndTime: " << container[j].c[i] << std::endl;
+		}
 	}
-
-	for (auto &i : witiElement) {
-
-		witiSum += i;
-	}
-
-	return witiSum;
+	return container[machines - 1].c[tasks - 1];
 }
 
-void coutOrder(const std::vector <fsp> &container) {
-
-	for (auto &i : container) {
-
-		std::cout << i.index + 1 << " ";
-	}
-	std::cout << std::endl;
-}
-
-void coutPWD(const std::vector <fsp> &container) {
-
-	std::cout << container.size() << std::endl;
-
-	for (auto &i : container) {
-
-		std::cout << i.p << " " << i.w << " " << i.d << std::endl;
-	}
-}
-
-bool loadContainer(const std::string filename, std::vector <fsp> &container) {
-
+void loadContainer(const std::string filename, std::vector <fsp> &container)
+{
 	std::fstream streamRead;
 	streamRead.open(filename, std::ios::in);
 
-	if (!streamRead.is_open()) {
-
+	if (!streamRead.is_open())
+	{
 		std::cerr << "Error opening " + filename + " to read" << std::endl;
-		return false;
+		return;
 	}
-	else {
-		int size = NULL;
-		fsp buff;
+	else
+	{
+		int machines, tasks;
+		streamRead >> machines >> tasks;
 
-		streamRead >> size;
+		for (int i = 0, k = -1; i < machines * tasks; ++i)
+		{
+			vi temp;
+			streamRead >> temp.index >> temp.value;
 
-		for (int i = 0; i < size; ++i) {
-			buff.index = i;
-			streamRead >> buff.p >> buff.w >> buff.d;
-			container.push_back(buff);
+			if (i % tasks == 0)
+			{
+				fsp temp2;
+				temp2.p.push_back(temp);
+				container.push_back(temp2);
+				++k;
+			}
+			else
+			{
+				container[k].p.push_back(temp);
+			}
 		}
+		streamRead.close();
 	}
-
-	return true;
 }
 
-void sortLessD(std::vector <fsp> &container) {
-
-	std::sort(container.begin(), container.end(), sortD());
-}
-
-void sortLessW(std::vector <fsp> &container) {
-
-	std::sort(container.begin(), container.end(), sortW());
-}
-
-bool loadFilenames(const std::string filename, std::vector <std::string> &container) {
+void loadFilenames(const std::string filename, std::vector <std::string> &container) {
 
 	std::fstream streamRead;
 	streamRead.open(filename, std::ios::in);
@@ -134,7 +116,7 @@ bool loadFilenames(const std::string filename, std::vector <std::string> &contai
 	if (!streamRead.is_open()) {
 
 		std::cerr << "Error opening file to read" << std::endl;
-		return false;
+		return;
 	}
 	else {
 		std::string buff;
@@ -145,326 +127,32 @@ bool loadFilenames(const std::string filename, std::vector <std::string> &contai
 			container.push_back(buff);
 		}
 	}
-
-	return true;
 }
 
-void insertSort(std::vector <fsp> &container) {
-
-	std::vector<std::vector <fsp>> table;
-	std::vector<fsp> toRememeber;
-
-	toRememeber.push_back(container[0]);
-	container.erase(container.begin());
-	table.clear();
-
-	int ind = NULL;
-	while (!container.empty()) {
-
-		for (int i = 0; i < toRememeber.size() + 1; ++i) {
-
-			table.push_back(toRememeber);
-		}
-
-		for (int i = 0; i < toRememeber.size() + 1; ++i) {
-
-			table[i].insert(table[i].begin() + i, container[0]);
-
-		}
-		container.erase(container.begin());
-
-		int value = INT_MAX;
-		for (int i = 0; i < table.size(); ++i) {
-
-			int temp = calcWiti(table[i]);
-
-			if (temp <= value) {
-				value = temp;
-				ind = i;
-			}
-		}
-
-		toRememeber = table[ind];
-		table.clear();
-	}
-	container = toRememeber;
-}
-
-struct dynamicHelper
+void calcEverything(std::vector <std::string> &filenames, std::vector <unsigned int> &cMax)
 {
-	int WiTi = NULL;
-	std::vector <int> order;
-};
-
-void sortDynamic(std::vector <fsp> &container)
-{
-	unsigned long size = pow(2, container.size());
-	std::vector <dynamicHelper> solution; //rozwiazania witi
-	dynamicHelper zero;
-	zero.WiTi = 0; zero.order.push_back(-1);
-	solution.push_back(zero);
-
-	//i to element wektora rozwiazan 010=2, 101=5
-	for (unsigned long i = 1; i < size; ++i)
-	{
-		dynamicHelper buffer;
-		unsigned long temp = i;
-		int position = 0;
-
-		//sprawdzenie poprzednich wartosci
-		while (temp != 1)
-		{
-			temp >>= 1;
-			++position;
-		}
-		temp <<= position;
-		--temp;
-		temp &= i; //wszstkie poprzednie witi
-
-		//obliczenia, jezeli tylko jeden wyraz 0001 lub 0100
-		if (temp == 0)
-		{
-			buffer.WiTi = max(container[position].p - container[position].d, 0)*container[position].w;
-			buffer.order.push_back(position);
-		}
-		else
-		{
-			//suma p1+p2+p5 itp.
-			int sum = 0;
-			unsigned long pointer = 1;
-
-			//przesuwa sie po kontenerze
-			for (int j = 0; j <= position; ++j)
-			{
-				if ((pointer&i) == pointer)
-				{
-					sum += container[j].p;
-				}
-				pointer <<= 1;
-			}
-			//szukaj minimum z maximow - do edycji
-			int minimum;
-			pointer = 1;
-			for (int j = 0; j <= position; ++j) //przesuwa sie po kontenerze
-			{
-				if ((pointer&i) == pointer)
-				{
-					minimum = max(sum - container[j].d, 0)*container[j].w + solution[(i^pointer)].WiTi;
-
-					if (buffer.WiTi == NULL)
-					{
-						buffer.WiTi = minimum;
-						buffer.order = solution[(i^pointer)].order;
-						buffer.order.push_back(j);
-					}
-					//zeby nie porownywal z nulem w poprzednim ifie
-					else if (minimum <= buffer.WiTi)
-					{
-						buffer.WiTi = minimum;
-						buffer.order = solution[(i^pointer)].order;
-						buffer.order.push_back(j);
-					}
-				}
-				pointer <<= 1;
-			}
-		}
-		solution.push_back(buffer);
-	}
-
-	std::vector <fsp> temp;
-
-	for (int i = 0; i < container.size(); ++i)
-	{
-		temp.push_back(container[solution[size - 1].order[i]]);
-	}
-
-	container = temp;
-}
-
-void calcEverything(std::vector <int> &WiTiTi, std::vector <std::string> &filenames, std::vector <int> &sizes, std::vector <double> &times)
-{
-	std::vector <fsp> container;
-	timer stopwatch;
-	const int algorithmCount = 4;
+	int k = 0;
 	for (std::string i : filenames)
 	{
-		loadContainer("witi/" + i, container);
-		sizes.push_back(container.size());
-		std::vector <std::vector <fsp>> vectorOfContainers;
-		for (int i = 0; i < algorithmCount; ++i) {
-			vectorOfContainers.push_back(container);
-		}
-
-		stopwatch.start();
-		sortLessD(vectorOfContainers[1]);
-		times.push_back(stopwatch.end());
-		stopwatch.start();
-		insertSort(vectorOfContainers[2]);
-		times.push_back(stopwatch.end());
-		stopwatch.start();
-		sortDynamic(vectorOfContainers[3]);
-		times.push_back(stopwatch.end());
-
-		for (int i = 0; i < algorithmCount; ++i) {
-			WiTiTi.push_back(calcWiti(vectorOfContainers[i]));
-		}
-		container.clear();
+		std::vector <fsp> temp;
+		loadContainer("data/" + i + ".txt", temp);
+		cMax.push_back(calculate(temp));
+		++k;
 	}
 }
 
-void printResultsToFile(std::vector <int> &WiTiTi, std::vector <std::string> &filenames, std::vector <int> &sizes, std::vector <double> &times, std::vector <double> &PRD)
+int main()
 {
-	std::fstream streamWriteResults, streamWriteTimes, streamWritePRD;
-	streamWriteResults.open("results.txt", std::ios::out);
-	streamWriteTimes.open("times.txt", std::ios::out);
-	streamWritePRD.open("PRDs.txt", std::ios::out);
-	std::vector <std::string> resultsS, timesS, PRDS;
-
-	if (!streamWriteResults.is_open() || !streamWriteTimes.is_open() || !streamWritePRD.is_open()) {
-
-		std::cerr << "Error opening file" << std::endl;
-		return;
-	}
-	else {
-
-		resultsS.push_back("Nazwa instancji &");
-		resultsS.push_back("Rozmiar &");
-		resultsS.push_back("12345 &");
-		resultsS.push_back("sortD &");
-		resultsS.push_back("insert &");
-		resultsS.push_back("alg prog dyn\\\\\n");
-
-		timesS.push_back("Nazwa instancji &");
-		timesS.push_back("Rozmiar &");
-		timesS.push_back("sortD &");
-		timesS.push_back("insert &");
-		timesS.push_back("alg prog dyn\\\\\n");
-
-		timesS.push_back("Nazwa instancji &");
-		timesS.push_back("Rozmiar &");
-		timesS.push_back("sortD &");
-		timesS.push_back("insert &");
-		timesS.push_back("alg prog dyn\\\\\n");
-
-		const int algorithmsCount = 4;
-		const int algorithmsCount2 = algorithmsCount - 1;
-
-		for (int i = 0, k = 0; i < WiTiTi.size(); ++i)
-		{
-			if (i % algorithmsCount == 0)
-			{
-				resultsS.push_back(filenames[k] + " &");
-				resultsS.push_back(std::to_string(sizes[k]) + " &");
-				++k;
-			}
-			if ((i + 1) % algorithmsCount == 0) {
-
-				resultsS.push_back(std::to_string(WiTiTi[i]) + " \\\\\n");
-			}
-			else {
-				resultsS.push_back(std::to_string(WiTiTi[i]) + " &");
-			}
-		}
-
-		for (auto &i : resultsS)
-		{
-			streamWriteResults << i;
-		}
-
-		for (int i = 0, k = 0; i < times.size(); ++i)
-		{
-			if (i % algorithmsCount2 == 0)
-			{
-				timesS.push_back(filenames[k] + " &");
-				timesS.push_back(std::to_string(sizes[k]) + " &");
-				PRDS.push_back(filenames[k] + " &");
-				PRDS.push_back(std::to_string(sizes[k]) + " &");
-				++k;
-			}
-			if ((i + 1) % algorithmsCount2 == 0) {
-
-				timesS.push_back(std::to_string(times[i]) + " \\\\\n");
-				PRDS.push_back(std::to_string(PRD[i]) + " \\\\\n");
-			}
-			else {
-				timesS.push_back(std::to_string(times[i]) + " &");
-				PRDS.push_back(std::to_string(PRD[i]) + " &");
-			}
-		}
-
-		for (auto &i : timesS)
-		{
-			streamWriteTimes << i;
-		}
-
-		for (auto &i : PRDS)
-		{
-			streamWritePRD << i;
-		}
-	}
-}
-void calcPRD(std::vector <int> &WiTiTi, std::vector <float> &PRD)
-{
-	std::vector <int> temp;
-	int ref = NULL;
-	const int algorithmCount = 4;
-
-	for (int i = 0; i < WiTiTi.size(); ++i)
-	{
-		if (i % algorithmCount != 0) {
-			temp.push_back(WiTiTi[i]);
-		}
-	}
-
-	for (int i = 0; i < temp.size(); ++i)
-	{
-		if (i % (algorithmCount - 1) == 0)
-		{
-			ref = temp[i + (algorithmCount - 2)];
-		}
-		float dTemp = 100.0f * (temp[i] - ref) / ref;
-		PRD.push_back(dTemp);
-	}
-}
-
-void calcPRDMean(std::vector <float> &PRD, std::vector <float> &PRDMean)
-{
-	const int algorithmCount = 3;
-	std::vector <float> sum;
-	std::vector <int> val;
-
-	for (int i = 0; i < algorithmCount; ++i)
-	{
-		sum.push_back(0.0f);
-		val.push_back(i);
-	}
-
-	for (int i = 0; i < PRD.size(); ++i)
-	{
-		if (i % algorithmCount == val[i%algorithmCount])
-		{
-			sum[i % algorithmCount] += PRD[i];
-		}
-	}
-
-	for (int i = 0; i < algorithmCount; ++i)
-	{
-		PRDMean.push_back(sum[i] / (PRD.size() / algorithmCount));
-	}
-}
-int main() {
-
-	std::vector <pwd> container;
-	std::vector <int> WiTiTi, sizes;
 	std::vector <std::string> filenames;
-	std::vector <double> times;
-	std::vector <float> PRD, PRDMean;
+	std::vector <unsigned int> cMax;
 
-	loadFilenames("witi/filenames.txt", filenames);
-	calcEverything(WiTiTi, filenames, sizes, times);
-	calcPRD(WiTiTi, PRD);
-	calcPRDMean(PRD, PRDMean);
-	printResultsToFile(WiTiTi, filenames, sizes, times, PRD, PRDMean);
+	loadFilenames("data/filenames.txt", filenames);
+	calcEverything(filenames, cMax);
+
+	for (auto &i : cMax)
+	{
+		std::cout << i << std::endl;
+	}
 	system("pause");
 	return 0;
 }
