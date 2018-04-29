@@ -16,12 +16,12 @@ void main()
 	while (!read.eof())
 	{
 		std::string filename;
-		int size, machines, buff, buff2;
+		int tasks, machines, buff, buff2;
 		std::vector <int> values;
 
-		read >> filename >> size >> machines;
+		read >> filename >> tasks >> machines;
 
-		for (int i = 0; i < size * machines; ++i)
+		for (int i = 0; i < tasks * machines; ++i)
 		{
 			read >> buff >> buff2;
 			values.push_back(buff);
@@ -34,30 +34,30 @@ void main()
 		{
 			return;
 		}
-		else {
+		else
+		{
 			filenames.push_back(filename);
 
-			write << size << " " << machines << std::endl;
-			for (int i = 0; i < size*machines * 2; ++i)
+			write << tasks << " " << machines << std::endl;
+
+			for (int i = 0; i < machines*tasks * 2; ++i)
 			{
-				if (values[i] >= 0 && values[i] <= 9)
+				if (i % 2 == 1)
 				{
-					write << " " << values[i] << " ";
-				}
-				else
-				{
+					if (values[i] >= 0 && values[i] <= 9)
+					{
+						write << " ";
+					}
 					write << values[i] << " ";
 				}
 
-				if ((i + 1) % (2 * machines) == 0)
+				if ((i + 1) % (machines *2) == 0)
 				{
 					write << std::endl;
 				}
-				else if (i % 2 == 1)
-				{
-					write << " ";
-				}
 			}
+			write << std::endl;
+			
 			write.close();
 		}
 	}
