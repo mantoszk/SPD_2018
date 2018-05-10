@@ -78,7 +78,7 @@ unsigned int calculate(std::vector <machine> &container)
 	return container[machines - 1].c[tasks - 1];
 }
 
-void loadContainer(const std::string filename, std::vector <machine> &container)
+void loadContainer(const std::string filename, std::vector <machine> &container, std::vector <unsigned int> &Vtask, std::vector <unsigned int> &Vmachine)
 {
 	std::fstream streamRead;
 	streamRead.open(filename, std::ios::in);
@@ -92,6 +92,8 @@ void loadContainer(const std::string filename, std::vector <machine> &container)
 	{
 		int taskCount = 0, machineCount = 0;
 		streamRead >> taskCount >> machineCount;
+		Vtask.push_back(taskCount);
+		Vmachine.push_back(machineCount);
 
 		for (int i = 0; i < machineCount; ++i)
 		{
@@ -293,6 +295,7 @@ int NEHPlus(std::vector <machine> &container)
 			sorted[i].p.erase(sorted[i].p.begin());
 		}
 
+		//najmniejszy Cmax
 		int value = INT_MAX;
 		for (int i = 0; i < table.size(); ++i) {
 
@@ -321,7 +324,7 @@ int NEHPlus(std::vector <machine> &container)
 		/////////////////////////////////////////////////////////////////////////////
 		if (zzz % 2 == 0)
 		{
-			//ponowne wstawianie elementu bez którego CMax jest najmniejsze (4. opcja)
+			//ponowne wstawianie elementu bez ktorego CMax jest najmniejsze (4. opcja)
 
 			for (int i = 0; i < toRemember[0].p.size(); ++i)
 			{
@@ -398,32 +401,267 @@ int NEHPlus(std::vector <machine> &container)
 	return calculate(toRemember);
 }
 
-void calcEverything(std::vector <std::string> &filenames, std::vector <unsigned int> &cMax, unsigned int sampleCount)
+void calcEverything(std::vector <std::string> &filenames, std::vector <unsigned int> &cMax, unsigned int sampleCount, std::vector <double> &times, std::vector <unsigned int> &Vtask, std::vector <unsigned int> &Vmachine)
 {
+	timer stopwatch;
+	
 	for (unsigned int i = 0; i < sampleCount; ++i)
 	{
+		std::cout<<"nr: "<<i<<"\n";
 		std::vector <machine> temp;
-		loadContainer("data/" + filenames[i] + ".txt", temp);
+		loadContainer("data/" + filenames[i] + ".txt", temp, Vtask, Vmachine);
 		cMax.push_back(calculate(temp));
+		stopwatch.start();
 		cMax.push_back(NEH(temp));
+		times.push_back(stopwatch.end());
+		stopwatch.start();
 		cMax.push_back(NEHPlus(temp));
+		times.push_back(stopwatch.end());
+	}
+}
+
+void printResultsToFile(std::vector <unsigned int> &cMax, std::vector <std::string> &filenames, std::vector <unsigned int> &Vtask, std::vector <unsigned int> &Vmachine, std::vector <double> &times)
+{
+	std::fstream streamWriteResults, streamWriteTimes, streamPlotMachcMax, streamPlotMachTime, streamPlotTaskcMax, streamPlotTaskTime;
+	streamWriteResults.open("results.txt", std::ios::out);
+	streamWriteTimes.open("times.txt", std::ios::out);
+	streamPlotMachcMax.open("machcMax.txt", std::ios::out);
+	streamPlotMachTime.open("machTime.txt", std::ios::out);
+	streamPlotTaskcMax.open("taskcMax.txt", std::ios::out);
+	streamPlotTaskTime.open("taskTime.txt", std::ios::out);
+	//streamWritePRD.open("PRDs.txt", std::ios::out);
+	std::vector <std::string> resultsS, timesS, PRDS, PMC1, PTC1, PMC, PMT, PTC, PTT, PMCP, PMTP, PTCP, PTTP;
+
+	if (!streamWriteResults.is_open() || !streamWriteTimes.is_open() || !streamPlotMachcMax.is_open() || !streamPlotMachTime.is_open() || !streamPlotTaskcMax.is_open() || !streamPlotTaskTime.is_open() ) {
+
+		std::cerr << "Error opening file" << std::endl;
+		return;
+	}
+	else {
+
+		resultsS.push_back("Nazwa instancji &");
+		resultsS.push_back("Zadania &");
+		resultsS.push_back("Maszyny &");
+		resultsS.push_back("12345 &");
+		resultsS.push_back("NEH &");
+		resultsS.push_back("NEH Plus\\\\\n");
+
+		timesS.push_back("Nazwa instancji &");
+		timesS.push_back("Zadania &");
+		timesS.push_back("Maszyny &");
+		timesS.push_back("NEH &");
+		timesS.push_back("NEH Plus\\\\\n");
+		
+		//plot
+		PMC1.push_back("coordinates {\n");
+		PTC1.push_back("coordinates {\n");
+		
+		PMC.push_back("coordinates {\n");
+		PMT.push_back("coordinates {\n");
+		PTC.push_back("coordinates {\n");
+		PTT.push_back("coordinates {\n");
+		//plus
+		PMCP.push_back("coordinates {\n");
+		PMTP.push_back("coordinates {\n");
+		PTCP.push_back("coordinates {\n");
+		PTTP.push_back("coordinates {\n");
+
+		const int algorithmsCount = 3;
+		const int algorithmsCount2 = algorithmsCount - 1;
+		
+		unsigned int tempMach=0, tempTask=0;
+
+		for (int i = 0, k = 0; i < cMax.size(); ++i)
+		{			
+			if (i % algorithmsCount == 0)
+			{
+				resultsS.push_back(filenames[k] + " &");
+				resultsS.push_back(std::to_string(Vtask[k]) + " &");
+				resultsS.push_back(std::to_string(Vmachine[k]) + " &");
+				++k;
+			}
+			if ((i + 1) % algorithmsCount == 0)
+			{
+				resultsS.push_back(std::to_string(cMax[i]) + " \\\\\n");
+			}
+			else {
+				resultsS.push_back(std::to_string(cMax[i]) + " &");
+			}
+			
+			switch (i%3)
+			{
+				case 0: //123
+					if(tempMach<Vmachine[k-1])
+					{
+						PMC1.push_back("("+std::to_string(Vmachine[k-1])+","+std::to_string(cMax[i])+")\n");
+					}
+					if( Vmachine[k-1]==20 && tempTask<Vtask[k-1] )
+					{
+						PTC1.push_back("("+std::to_string(Vtask[k-1])+","+std::to_string(cMax[i])+")\n");
+					}
+					break;
+					
+				case 1: //NEH
+					if(tempMach<Vmachine[k-1])
+					{
+						PMC.push_back("("+std::to_string(Vmachine[k-1])+","+std::to_string(cMax[i])+")\n");
+					}
+					if( Vmachine[k-1]==20 && tempTask<Vtask[k-1] )
+					{
+						PTC.push_back("("+std::to_string(Vtask[k-1])+","+std::to_string(cMax[i])+")\n");
+					}
+					break;
+					
+				case 2: //NEH Plus
+					if(tempMach<Vmachine[k-1])
+					{
+						PMCP.push_back("("+std::to_string(Vmachine[k-1])+","+std::to_string(cMax[i])+")\n");
+						tempMach=Vmachine[k-1];
+					}
+					if( Vmachine[k-1]==20 && tempTask<Vtask[k-1] )
+					{
+						PTCP.push_back("("+std::to_string(Vtask[k-1])+","+std::to_string(cMax[i])+")\n");
+						tempTask=Vtask[k-1];
+					}
+					break;
+					
+				default:
+					break;
+			}
+			
+		}
+		
+		PMC1.push_back("};\n");
+		PTC1.push_back("};\n");
+		PMC.push_back("};\n");
+		PTC.push_back("};\n");
+		PMCP.push_back("};\n");
+		PTCP.push_back("};\n");
+		
+		for (auto &i : PMC1)
+		{
+			streamPlotMachcMax << i;
+		}
+		for (auto &i : PMC)
+		{
+			streamPlotMachcMax << i;
+		}
+		for (auto &i : PMCP)
+		{
+			streamPlotMachcMax << i;
+		}
+		
+		for (auto &i : PTC1)
+		{
+			streamPlotTaskcMax << i;
+		}
+		for (auto &i : PTC)
+		{
+			streamPlotTaskcMax << i;
+		}
+		for (auto &i : PTCP)
+		{
+			streamPlotTaskcMax << i;
+		}
+		
+		
+		for (auto &i : resultsS)
+		{
+			streamWriteResults << i;
+		}
+		
+		tempMach=0, tempTask=0;
+
+		for (int i = 0, k = 0; i < times.size(); ++i)
+		{
+			if (i % algorithmsCount2 == 0)
+			{
+				timesS.push_back(filenames[k] + " &");
+				timesS.push_back(std::to_string(Vtask[k]) + " &");
+				timesS.push_back(std::to_string(Vmachine[k]) + " &");
+				++k;
+			}
+			if ((i + 1) % algorithmsCount2 == 0) {
+
+				timesS.push_back(std::to_string(times[i]) + " \\\\\n");
+			}
+			else {
+				timesS.push_back(std::to_string(times[i]) + " &");
+			}
+			
+			switch (i%2)
+			{					
+				case 0: //NEH
+					if(tempMach<Vmachine[k-1])
+					{
+						PMT.push_back("("+std::to_string(Vmachine[k-1])+","+std::to_string(times[i])+")\n");
+					}
+					if( Vmachine[k-1]==20 && tempTask<Vtask[k-1] )
+					{
+						PTT.push_back("("+std::to_string(Vtask[k-1])+","+std::to_string(times[i])+")\n");
+					}
+					break;
+					
+				case 1: //NEH Plus
+					if(tempMach<Vmachine[k-1])
+					{
+						PMTP.push_back("("+std::to_string(Vmachine[k-1])+","+std::to_string(times[i])+")\n");
+						tempMach=Vmachine[k-1];
+					}
+					if( Vmachine[k-1]==20 && tempTask<Vtask[k-1] )
+					{
+						PTTP.push_back("("+std::to_string(Vtask[k-1])+","+std::to_string(times[i])+")\n");
+						tempTask=Vtask[k-1];
+					}
+					break;
+					
+				default:
+					break;
+			}
+		}
+		
+		PMT.push_back("};\n");
+		PTT.push_back("};\n");
+		PMTP.push_back("}\n;");
+		PTTP.push_back("}\n;");
+
+		for (auto &i : PMT)
+		{
+			streamPlotMachTime << i;
+		}
+		for (auto &i : PMTP)
+		{
+			streamPlotMachTime << i;
+		}
+		
+		for (auto &i : PTT)
+		{
+			streamPlotTaskTime << i;
+		}
+		for (auto &i : PTTP)
+		{
+			streamPlotTaskTime << i;
+		}
+		
+
+		for (auto &i : timesS)
+		{
+			streamWriteTimes << i;
+		}
+
 	}
 }
 
 int main()
 {
 	std::vector <std::string> filenames;
-	std::vector <unsigned int> cMax;
+	std::vector <unsigned int> cMax, sizes, Vtask, Vmachine;
+	std::vector <double> times;
 
 	loadFilenames("data/filenames.txt", filenames);
-	calcEverything(filenames, cMax, 5);
+	calcEverything(filenames, cMax, 120, times, Vtask, Vmachine);
 
-	std::cout << "Nr  " << "123  NEH  NEHPlus" << std::endl;
-
-	for (int i = 0, k = 0; i < cMax.size(); i += 3, ++k)
-	{
-		std::cout << k + 1 << ": " << cMax[i] << " " << cMax[i + 1] << " " << cMax[i + 2] << std::endl;
-	}
+	printResultsToFile(cMax, filenames, Vtask, Vmachine, times);
 	system("pause");
 	return 0;
 }
