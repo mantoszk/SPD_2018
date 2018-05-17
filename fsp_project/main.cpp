@@ -4,6 +4,7 @@
 #include <vector>
 #include <algorithm>
 #include "timer.h"
+#include <ctime>
 
 //grupa nr 2
 //[SPD]_pt13_gr2_T3
@@ -135,6 +136,58 @@ void loadFilenames(const std::string filename, std::vector <std::string> &contai
 			container.push_back(buff);
 		}
 	}
+}
+
+void swap_tasks(std::vector <machine> &container, const int ind_swap, const int ind_with)
+{
+	for (auto &i : container)
+	{
+		std::swap(i.p[ind_swap], i.p[ind_with]);
+	}
+}
+
+int SA(std::vector <machine> &container, const double temperaturr, const double coolingCoefficient, const double tresholdNearToZero)
+{
+	const int size = container[0].p.size();
+	double temperature = temperaturr;
+
+	int rand1 = 0, rand2 = 0;
+	double probability = 0.0, randomZeroOne = 0.0;
+	int prevCMax = calculate(container);
+
+	while (1)
+	{
+		do
+		{
+			rand1 = rand() % size;
+			rand2 = rand() % size;
+			swap_tasks(container, rand1, rand2);
+		} while (rand1 == rand2);
+
+		int nowCMax = calculate(container);
+
+		if (nowCMax > prevCMax)
+		{
+			probability = exp((nowCMax - prevCMax) / temperature);
+			randomZeroOne = ((double)rand() / (double)RAND_MAX);
+
+			if (randomZeroOne > probability)
+			{
+				swap_tasks(container, rand1, rand2);
+			}
+		}
+		if (temperature > tresholdNearToZero)
+		{
+			temperature *= coolingCoefficient;
+		}
+		else
+		{
+			break;
+		}
+
+		prevCMax = nowCMax;
+	}
+	return calculate(container);
 }
 
 int NEH(std::vector <machine> &container)
@@ -309,18 +362,6 @@ int NEHPlus(std::vector <machine> &container)
 		toRemember = table[ind];
 		table.clear();
 
-		/*
-		for (auto &k : toRemember)
-		{
-			for (auto &j : k.p)
-			{
-				std::cout << j.index << " ";
-			}
-			std::cout << std::endl;
-			break;
-		}
-		*/
-
 		/////////////////////////////////////////////////////////////////////////////
 		if (zzz % 2 == 0)
 		{
@@ -338,7 +379,7 @@ int NEHPlus(std::vector <machine> &container)
 			{
 				//prawdziwe indeksy zaczynaja sie od 1, wiec trzeba je przesunac
 				indexHunter.push_back(table[i][0].p[i].index - 1);
-				
+
 				//pomijamy usuwanie ostatnio dodanego elementu, tablica z tym elementem bedzie najwieksza wiec na pewno nie zostanie wybrana
 				if (i != ind)
 				{
@@ -364,7 +405,6 @@ int NEHPlus(std::vector <machine> &container)
 			table.clear();
 
 			//wrzucenie elementu to vectora sorted, w celu ponownego dodania
-
 			std::vector <machine> tempSorted;
 			for (int i = 0; i < container.size(); ++i)
 			{
@@ -372,7 +412,6 @@ int NEHPlus(std::vector <machine> &container)
 				xd.p.push_back(container[i].p[indexHunter[ind]]);
 				tempSorted.push_back(xd);
 			}
-			//std::cout << "Deleted: " << tempSorted[0].p[0].index << std::endl;
 
 			for (int i = 0; i < sorted.size(); ++i)
 			{
@@ -386,28 +425,16 @@ int NEHPlus(std::vector <machine> &container)
 		++zzz;
 	}
 
-	/*
-	for (auto &i : toRemember)
-	{
-		for (auto &j : i.p)
-		{
-			std::cout << j.index << " ";
-		}
-		break;
-	}
-	std::cout << std::endl;
-	*/
-
 	return calculate(toRemember);
 }
 
 void calcEverything(std::vector <std::string> &filenames, std::vector <unsigned int> &cMax, unsigned int sampleCount, std::vector <double> &times, std::vector <unsigned int> &Vtask, std::vector <unsigned int> &Vmachine)
 {
 	timer stopwatch;
-	
+
 	for (unsigned int i = 0; i < sampleCount; ++i)
 	{
-		std::cout<<"nr: "<<i<<"\n";
+		std::cout << "nr: " << i << "\n";
 		std::vector <machine> temp;
 		loadContainer("data/" + filenames[i] + ".txt", temp, Vtask, Vmachine);
 		cMax.push_back(calculate(temp));
@@ -432,7 +459,7 @@ void printResultsToFile(std::vector <unsigned int> &cMax, std::vector <std::stri
 	//streamWritePRD.open("PRDs.txt", std::ios::out);
 	std::vector <std::string> resultsS, timesS, PRDS, PMC1, PTC1, PMC, PMT, PTC, PTT, PMCP, PMTP, PTCP, PTTP;
 
-	if (!streamWriteResults.is_open() || !streamWriteTimes.is_open() || !streamPlotMachcMax.is_open() || !streamPlotMachTime.is_open() || !streamPlotTaskcMax.is_open() || !streamPlotTaskTime.is_open() ) {
+	if (!streamWriteResults.is_open() || !streamWriteTimes.is_open() || !streamPlotMachcMax.is_open() || !streamPlotMachTime.is_open() || !streamPlotTaskcMax.is_open() || !streamPlotTaskTime.is_open()) {
 
 		std::cerr << "Error opening file" << std::endl;
 		return;
@@ -451,11 +478,11 @@ void printResultsToFile(std::vector <unsigned int> &cMax, std::vector <std::stri
 		timesS.push_back("Maszyny &");
 		timesS.push_back("NEH &");
 		timesS.push_back("NEH Plus\\\\\n");
-		
+
 		//plot
 		PMC1.push_back("coordinates {\n");
 		PTC1.push_back("coordinates {\n");
-		
+
 		PMC.push_back("coordinates {\n");
 		PMT.push_back("coordinates {\n");
 		PTC.push_back("coordinates {\n");
@@ -468,11 +495,11 @@ void printResultsToFile(std::vector <unsigned int> &cMax, std::vector <std::stri
 
 		const int algorithmsCount = 3;
 		const int algorithmsCount2 = algorithmsCount - 1;
-		
-		unsigned int tempMach=0, tempTask=0;
+
+		unsigned int tempMach = 0, tempTask = 0;
 
 		for (int i = 0, k = 0; i < cMax.size(); ++i)
-		{			
+		{
 			if (i % algorithmsCount == 0)
 			{
 				resultsS.push_back(filenames[k] + " &");
@@ -487,57 +514,57 @@ void printResultsToFile(std::vector <unsigned int> &cMax, std::vector <std::stri
 			else {
 				resultsS.push_back(std::to_string(cMax[i]) + " &");
 			}
-			
-			switch (i%3)
+
+			switch (i % 3)
 			{
-				case 0: //123
-					if(tempMach<Vmachine[k-1])
-					{
-						PMC1.push_back("("+std::to_string(Vmachine[k-1])+","+std::to_string(cMax[i])+")\n");
-					}
-					if( Vmachine[k-1]==20 && tempTask<Vtask[k-1] )
-					{
-						PTC1.push_back("("+std::to_string(Vtask[k-1])+","+std::to_string(cMax[i])+")\n");
-					}
-					break;
-					
-				case 1: //NEH
-					if(tempMach<Vmachine[k-1])
-					{
-						PMC.push_back("("+std::to_string(Vmachine[k-1])+","+std::to_string(cMax[i])+")\n");
-					}
-					if( Vmachine[k-1]==20 && tempTask<Vtask[k-1] )
-					{
-						PTC.push_back("("+std::to_string(Vtask[k-1])+","+std::to_string(cMax[i])+")\n");
-					}
-					break;
-					
-				case 2: //NEH Plus
-					if(tempMach<Vmachine[k-1])
-					{
-						PMCP.push_back("("+std::to_string(Vmachine[k-1])+","+std::to_string(cMax[i])+")\n");
-						tempMach=Vmachine[k-1];
-					}
-					if( Vmachine[k-1]==20 && tempTask<Vtask[k-1] )
-					{
-						PTCP.push_back("("+std::to_string(Vtask[k-1])+","+std::to_string(cMax[i])+")\n");
-						tempTask=Vtask[k-1];
-					}
-					break;
-					
-				default:
-					break;
+			case 0: //123
+				if (tempMach < Vmachine[k - 1])
+				{
+					PMC1.push_back("(" + std::to_string(Vmachine[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
+				}
+				if (Vmachine[k - 1] == 20 && tempTask < Vtask[k - 1])
+				{
+					PTC1.push_back("(" + std::to_string(Vtask[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
+				}
+				break;
+
+			case 1: //NEH
+				if (tempMach < Vmachine[k - 1])
+				{
+					PMC.push_back("(" + std::to_string(Vmachine[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
+				}
+				if (Vmachine[k - 1] == 20 && tempTask < Vtask[k - 1])
+				{
+					PTC.push_back("(" + std::to_string(Vtask[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
+				}
+				break;
+
+			case 2: //NEH Plus
+				if (tempMach < Vmachine[k - 1])
+				{
+					PMCP.push_back("(" + std::to_string(Vmachine[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
+					tempMach = Vmachine[k - 1];
+				}
+				if (Vmachine[k - 1] == 20 && tempTask < Vtask[k - 1])
+				{
+					PTCP.push_back("(" + std::to_string(Vtask[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
+					tempTask = Vtask[k - 1];
+				}
+				break;
+
+			default:
+				break;
 			}
-			
+
 		}
-		
+
 		PMC1.push_back("};\n");
 		PTC1.push_back("};\n");
 		PMC.push_back("};\n");
 		PTC.push_back("};\n");
 		PMCP.push_back("};\n");
 		PTCP.push_back("};\n");
-		
+
 		for (auto &i : PMC1)
 		{
 			streamPlotMachcMax << i;
@@ -550,7 +577,7 @@ void printResultsToFile(std::vector <unsigned int> &cMax, std::vector <std::stri
 		{
 			streamPlotMachcMax << i;
 		}
-		
+
 		for (auto &i : PTC1)
 		{
 			streamPlotTaskcMax << i;
@@ -563,14 +590,14 @@ void printResultsToFile(std::vector <unsigned int> &cMax, std::vector <std::stri
 		{
 			streamPlotTaskcMax << i;
 		}
-		
-		
+
+
 		for (auto &i : resultsS)
 		{
 			streamWriteResults << i;
 		}
-		
-		tempMach=0, tempTask=0;
+
+		tempMach = 0, tempTask = 0;
 
 		for (int i = 0, k = 0; i < times.size(); ++i)
 		{
@@ -588,38 +615,38 @@ void printResultsToFile(std::vector <unsigned int> &cMax, std::vector <std::stri
 			else {
 				timesS.push_back(std::to_string(times[i]) + " &");
 			}
-			
-			switch (i%2)
-			{					
-				case 0: //NEH
-					if(tempMach<Vmachine[k-1])
-					{
-						PMT.push_back("("+std::to_string(Vmachine[k-1])+","+std::to_string(times[i])+")\n");
-					}
-					if( Vmachine[k-1]==20 && tempTask<Vtask[k-1] )
-					{
-						PTT.push_back("("+std::to_string(Vtask[k-1])+","+std::to_string(times[i])+")\n");
-					}
-					break;
-					
-				case 1: //NEH Plus
-					if(tempMach<Vmachine[k-1])
-					{
-						PMTP.push_back("("+std::to_string(Vmachine[k-1])+","+std::to_string(times[i])+")\n");
-						tempMach=Vmachine[k-1];
-					}
-					if( Vmachine[k-1]==20 && tempTask<Vtask[k-1] )
-					{
-						PTTP.push_back("("+std::to_string(Vtask[k-1])+","+std::to_string(times[i])+")\n");
-						tempTask=Vtask[k-1];
-					}
-					break;
-					
-				default:
-					break;
+
+			switch (i % 2)
+			{
+			case 0: //NEH
+				if (tempMach < Vmachine[k - 1])
+				{
+					PMT.push_back("(" + std::to_string(Vmachine[k - 1]) + "," + std::to_string(times[i]) + ")\n");
+				}
+				if (Vmachine[k - 1] == 20 && tempTask < Vtask[k - 1])
+				{
+					PTT.push_back("(" + std::to_string(Vtask[k - 1]) + "," + std::to_string(times[i]) + ")\n");
+				}
+				break;
+
+			case 1: //NEH Plus
+				if (tempMach < Vmachine[k - 1])
+				{
+					PMTP.push_back("(" + std::to_string(Vmachine[k - 1]) + "," + std::to_string(times[i]) + ")\n");
+					tempMach = Vmachine[k - 1];
+				}
+				if (Vmachine[k - 1] == 20 && tempTask < Vtask[k - 1])
+				{
+					PTTP.push_back("(" + std::to_string(Vtask[k - 1]) + "," + std::to_string(times[i]) + ")\n");
+					tempTask = Vtask[k - 1];
+				}
+				break;
+
+			default:
+				break;
 			}
 		}
-		
+
 		PMT.push_back("};\n");
 		PTT.push_back("};\n");
 		PMTP.push_back("}\n;");
@@ -633,7 +660,7 @@ void printResultsToFile(std::vector <unsigned int> &cMax, std::vector <std::stri
 		{
 			streamPlotMachTime << i;
 		}
-		
+
 		for (auto &i : PTT)
 		{
 			streamPlotTaskTime << i;
@@ -642,7 +669,7 @@ void printResultsToFile(std::vector <unsigned int> &cMax, std::vector <std::stri
 		{
 			streamPlotTaskTime << i;
 		}
-		
+
 
 		for (auto &i : timesS)
 		{
@@ -654,14 +681,28 @@ void printResultsToFile(std::vector <unsigned int> &cMax, std::vector <std::stri
 
 int main()
 {
-	std::vector <std::string> filenames;
+	srand((unsigned)time(NULL));
+	//std::vector <std::string> filenames;
 	std::vector <unsigned int> cMax, sizes, Vtask, Vmachine;
-	std::vector <double> times;
+	//std::vector <double> times;
 
-	loadFilenames("data/filenames.txt", filenames);
-	calcEverything(filenames, cMax, 120, times, Vtask, Vmachine);
+	//loadFilenames("data/filenames.txt", filenames);
+	//calcEverything(filenames, cMax, 120, times, Vtask, Vmachine);
+	//printResultsToFile(cMax, filenames, Vtask, Vmachine, times);
 
-	printResultsToFile(cMax, filenames, Vtask, Vmachine, times);
+	std::vector <machine> container;
+	loadContainer("data/ta001.txt", container, Vtask, Vmachine);
+
+	int save = INT_MAX;
+	while (1)
+	{
+		int raz = SA(container, 100.0, 0.95, 1.0E-1);
+		if (raz < save)
+		{
+			save = raz;
+			std::cout << save << std::endl;
+		}
+	}
 	system("pause");
 	return 0;
 }
