@@ -1,9 +1,4 @@
 coordinates {
-(5,1448)
-(10,2004)
-(20,2770)
-};
-coordinates {
 (5,1286)
 (10,1680)
 (20,2410)
@@ -12,4 +7,8 @@ coordinates {
 (5,1291)
 (10,1649)
 (20,2345)
+};
+coordinates {
+};
+coordinates {
 };

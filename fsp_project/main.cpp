@@ -146,7 +146,17 @@ void swap_tasks(std::vector <machine> &container, const int ind_swap, const int 
 	}
 }
 
-int SA(std::vector <machine> &container, const double temperaturr, const double coolingCoefficient, const double tresholdNearToZero)
+void insert_task(std::vector <machine> &container, const int from, const int to)
+{
+	for (auto &i : container)
+	{
+		task temp = i.p[from];
+		i.p.erase(i.p.begin() + from);
+		i.p.insert(i.p.begin() + to, temp);
+	}
+}
+
+int SASwap(std::vector <machine> &container, const double temperaturr, const double coolingCoefficient, const double tresholdNearToZero)
 {
 	const int size = container[0].p.size();
 	double temperature = temperaturr;
@@ -155,7 +165,7 @@ int SA(std::vector <machine> &container, const double temperaturr, const double 
 	double probability = 0.0, randomZeroOne = 0.0;
 	int prevCMax = calculate(container);
 
-	while (1)
+	while (true)
 	{
 		do
 		{
@@ -188,6 +198,86 @@ int SA(std::vector <machine> &container, const double temperaturr, const double 
 		prevCMax = nowCMax;
 	}
 	return calculate(container);
+}
+
+int SAInsert(std::vector <machine> &container, const double temperaturr, const double coolingCoefficient, const double tresholdNearToZero)
+{
+	const int size = container[0].p.size();
+	double temperature = temperaturr;
+
+	int rand1 = 0, rand2 = 0;
+	double probability = 0.0, randomZeroOne = 0.0;
+	int prevCMax = calculate(container);
+
+	while (true)
+	{
+		do
+		{
+			rand1 = rand() % size;
+			rand2 = rand() % size;
+			insert_task(container, rand1, rand2);
+		} while (rand1 == rand2);
+
+		int nowCMax = calculate(container);
+
+		if (nowCMax > prevCMax)
+		{
+			probability = exp((nowCMax - prevCMax) / temperature);
+			randomZeroOne = ((double)rand() / (double)RAND_MAX);
+
+			if (randomZeroOne > probability)
+			{
+				swap_tasks(container, rand1, rand2);
+			}
+		}
+		if (temperature > tresholdNearToZero)
+		{
+			temperature *= coolingCoefficient;
+		}
+		else
+		{
+			break;
+		}
+
+		prevCMax = nowCMax;
+	}
+	return calculate(container);
+}
+
+int AverageSASwap(std::vector <machine> &container, const double temperaturr, const double coolingCoefficient, const double tresholdNearToZero, const int instancesCount)
+{
+	std::vector<std::vector <machine>> multiplication;
+	int average = 0;
+
+	for (size_t i = 0; i < instancesCount; ++i)
+	{
+		multiplication.push_back(container);
+	}
+
+	for (auto &i : multiplication)
+	{
+		average += SASwap(i, temperaturr, coolingCoefficient, tresholdNearToZero);
+	}
+
+	return average/instancesCount;
+}
+
+int AverageSAInsert(std::vector <machine> &container, const double temperaturr, const double coolingCoefficient, const double tresholdNearToZero, const int instancesCount)
+{
+	std::vector<std::vector <machine>> multiplication;
+	int average = 0;
+
+	for (size_t i = 0; i < instancesCount; ++i)
+	{
+		multiplication.push_back(container);
+	}
+
+	for (auto &i : multiplication)
+	{
+		average += SAInsert(i, temperaturr, coolingCoefficient, tresholdNearToZero);
+	}
+
+	return average / instancesCount;
 }
 
 int NEH(std::vector <machine> &container)
@@ -428,7 +518,7 @@ int NEHPlus(std::vector <machine> &container)
 	return calculate(toRemember);
 }
 
-void calcEverything(std::vector <std::string> &filenames, std::vector <unsigned int> &cMax, unsigned int sampleCount, std::vector <double> &times, std::vector <unsigned int> &Vtask, std::vector <unsigned int> &Vmachine)
+void calcEverything(std::vector <std::string> &filenames, std::vector <unsigned int> &cMax, unsigned int sampleCount, std::vector <double> &times, std::vector <unsigned int> &Vtask, std::vector <unsigned int> &Vmachine, const double temperaturr, const double coolingCoefficient, const double tresholdNearToZero, const int instancesCount)
 {
 	timer stopwatch;
 
@@ -437,12 +527,24 @@ void calcEverything(std::vector <std::string> &filenames, std::vector <unsigned 
 		std::cout << "nr: " << i << "\n";
 		std::vector <machine> temp;
 		loadContainer("data/" + filenames[i] + ".txt", temp, Vtask, Vmachine);
-		cMax.push_back(calculate(temp));
+		//cMax.push_back(calculate(temp));
 		stopwatch.start();
 		cMax.push_back(NEH(temp));
 		times.push_back(stopwatch.end());
 		stopwatch.start();
 		cMax.push_back(NEHPlus(temp));
+		times.push_back(stopwatch.end());
+		stopwatch.start();
+		cMax.push_back(AverageSASwap(temp, temperaturr, coolingCoefficient, tresholdNearToZero, instancesCount));
+		times.push_back(stopwatch.end());
+		stopwatch.start();
+		cMax.push_back(AverageSASwap(temp, temperaturr, coolingCoefficient*0.33, tresholdNearToZero, instancesCount));
+		times.push_back(stopwatch.end());
+		stopwatch.start();
+		cMax.push_back(AverageSAInsert(temp, temperaturr, coolingCoefficient, tresholdNearToZero, instancesCount));
+		times.push_back(stopwatch.end());
+		stopwatch.start();
+		cMax.push_back(AverageSAInsert(temp, temperaturr, coolingCoefficient*0.33, tresholdNearToZero, instancesCount));
 		times.push_back(stopwatch.end());
 	}
 }
@@ -450,14 +552,15 @@ void calcEverything(std::vector <std::string> &filenames, std::vector <unsigned 
 void printResultsToFile(std::vector <unsigned int> &cMax, std::vector <std::string> &filenames, std::vector <unsigned int> &Vtask, std::vector <unsigned int> &Vmachine, std::vector <double> &times)
 {
 	std::fstream streamWriteResults, streamWriteTimes, streamPlotMachcMax, streamPlotMachTime, streamPlotTaskcMax, streamPlotTaskTime;
-	streamWriteResults.open("results.txt", std::ios::out);
-	streamWriteTimes.open("times.txt", std::ios::out);
+	streamWriteResults.open("latex/results.txt", std::ios::out);
+	streamWriteTimes.open("latex/times.txt", std::ios::out);
 	streamPlotMachcMax.open("machcMax.txt", std::ios::out);
 	streamPlotMachTime.open("machTime.txt", std::ios::out);
 	streamPlotTaskcMax.open("taskcMax.txt", std::ios::out);
 	streamPlotTaskTime.open("taskTime.txt", std::ios::out);
 	//streamWritePRD.open("PRDs.txt", std::ios::out);
-	std::vector <std::string> resultsS, timesS, PRDS, PMC1, PTC1, PMC, PMT, PTC, PTT, PMCP, PMTP, PTCP, PTTP;
+	std::vector <std::string> resultsS, timesS;
+	std::vector <std::string> a, A, b, B, c, C, d, D, aa, AA, bb, BB, cc, CC, dd, DD;
 
 	if (!streamWriteResults.is_open() || !streamWriteTimes.is_open() || !streamPlotMachcMax.is_open() || !streamPlotMachTime.is_open() || !streamPlotTaskcMax.is_open() || !streamPlotTaskTime.is_open()) {
 
@@ -469,32 +572,51 @@ void printResultsToFile(std::vector <unsigned int> &cMax, std::vector <std::stri
 		resultsS.push_back("Nazwa instancji &");
 		resultsS.push_back("Zadania &");
 		resultsS.push_back("Maszyny &");
-		resultsS.push_back("12345 &");
 		resultsS.push_back("NEH &");
-		resultsS.push_back("NEH Plus\\\\\n");
+		resultsS.push_back("NEH Plus &");
+		resultsS.push_back("SA Swap &");
+		resultsS.push_back("SA Swap 1/3 &");
+		resultsS.push_back("SA Insert &");
+		resultsS.push_back("SA Insert 1/3\\\\\n");
 
 		timesS.push_back("Nazwa instancji &");
 		timesS.push_back("Zadania &");
 		timesS.push_back("Maszyny &");
 		timesS.push_back("NEH &");
-		timesS.push_back("NEH Plus\\\\\n");
+		timesS.push_back("NEH Plus &");
+		timesS.push_back("SA Swap &");
+		timesS.push_back("SA Swap 1/3 &");
+		timesS.push_back("SA Insert &");
+		timesS.push_back("SA Insert 1/3\\\\\n");
 
 		//plot
-		PMC1.push_back("coordinates {\n");
-		PTC1.push_back("coordinates {\n");
+		a.push_back("coordinates {\n");
+		A.push_back("coordinates {\n");
 
-		PMC.push_back("coordinates {\n");
-		PMT.push_back("coordinates {\n");
-		PTC.push_back("coordinates {\n");
-		PTT.push_back("coordinates {\n");
+		b.push_back("coordinates {\n");
+		B.push_back("coordinates {\n");
+
+		c.push_back("coordinates {\n");
+		C.push_back("coordinates {\n");
+
+		d.push_back("coordinates {\n");
+		D.push_back("coordinates {\n");
+
 		//plus
-		PMCP.push_back("coordinates {\n");
-		PMTP.push_back("coordinates {\n");
-		PTCP.push_back("coordinates {\n");
-		PTTP.push_back("coordinates {\n");
+		aa.push_back("coordinates {\n");
+		AA.push_back("coordinates {\n");
 
-		const int algorithmsCount = 3;
-		const int algorithmsCount2 = algorithmsCount - 1;
+		bb.push_back("coordinates {\n");
+		BB.push_back("coordinates {\n");
+
+		cc.push_back("coordinates {\n");
+		CC.push_back("coordinates {\n");
+
+		dd.push_back("coordinates {\n");
+		DD.push_back("coordinates {\n");
+
+		const int algorithmsCount = 6;
+		const int algorithmsCount2 = algorithmsCount;
 
 		unsigned int tempMach = 0, tempTask = 0;
 
@@ -515,39 +637,52 @@ void printResultsToFile(std::vector <unsigned int> &cMax, std::vector <std::stri
 				resultsS.push_back(std::to_string(cMax[i]) + " &");
 			}
 
-			switch (i % 3)
+			switch (i % algorithmsCount)
 			{
-			case 0: //123
+			case 0: //NEH
 				if (tempMach < Vmachine[k - 1])
 				{
-					PMC1.push_back("(" + std::to_string(Vmachine[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
+					a.push_back("(" + std::to_string(Vmachine[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
 				}
 				if (Vmachine[k - 1] == 20 && tempTask < Vtask[k - 1])
 				{
-					PTC1.push_back("(" + std::to_string(Vtask[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
+					A.push_back("(" + std::to_string(Vtask[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
 				}
 				break;
 
-			case 1: //NEH
+			case 1: //NEH Plus
 				if (tempMach < Vmachine[k - 1])
 				{
-					PMC.push_back("(" + std::to_string(Vmachine[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
-				}
-				if (Vmachine[k - 1] == 20 && tempTask < Vtask[k - 1])
-				{
-					PTC.push_back("(" + std::to_string(Vtask[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
-				}
-				break;
-
-			case 2: //NEH Plus
-				if (tempMach < Vmachine[k - 1])
-				{
-					PMCP.push_back("(" + std::to_string(Vmachine[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
+					b.push_back("(" + std::to_string(Vmachine[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
 					tempMach = Vmachine[k - 1];
 				}
 				if (Vmachine[k - 1] == 20 && tempTask < Vtask[k - 1])
 				{
-					PTCP.push_back("(" + std::to_string(Vtask[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
+					B.push_back("(" + std::to_string(Vtask[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
+					tempTask = Vtask[k - 1];
+				}
+				break;
+			case 2: //SA Switch
+				if (tempMach < Vmachine[k - 1])
+				{
+					c.push_back("(" + std::to_string(Vmachine[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
+					tempMach = Vmachine[k - 1];
+				}
+				if (Vmachine[k - 1] == 20 && tempTask < Vtask[k - 1])
+				{
+					C.push_back("(" + std::to_string(Vtask[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
+					tempTask = Vtask[k - 1];
+				}
+				break;
+			case 3: //SA Insert
+				if (tempMach < Vmachine[k - 1])
+				{
+					d.push_back("(" + std::to_string(Vmachine[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
+					tempMach = Vmachine[k - 1];
+				}
+				if (Vmachine[k - 1] == 20 && tempTask < Vtask[k - 1])
+				{
+					D.push_back("(" + std::to_string(Vtask[k - 1]) + "," + std::to_string(cMax[i]) + ")\n");
 					tempTask = Vtask[k - 1];
 				}
 				break;
@@ -558,39 +693,47 @@ void printResultsToFile(std::vector <unsigned int> &cMax, std::vector <std::stri
 
 		}
 
-		PMC1.push_back("};\n");
-		PTC1.push_back("};\n");
-		PMC.push_back("};\n");
-		PTC.push_back("};\n");
-		PMCP.push_back("};\n");
-		PTCP.push_back("};\n");
+		a.push_back("};\n");
+		A.push_back("};\n");
+		b.push_back("};\n");
+		B.push_back("};\n");
+		c.push_back("};\n");
+		C.push_back("};\n");
+		d.push_back("};\n");
+		D.push_back("};\n");
 
-		for (auto &i : PMC1)
+		for (auto &i : a)
 		{
 			streamPlotMachcMax << i;
 		}
-		for (auto &i : PMC)
+		for (auto &i : A)
+		{
+			streamPlotTaskcMax << i;
+		}
+		for (auto &i : b)
 		{
 			streamPlotMachcMax << i;
 		}
-		for (auto &i : PMCP)
+		for (auto &i : B)
+		{
+			streamPlotTaskcMax << i;
+		}
+		for (auto &i : c)
 		{
 			streamPlotMachcMax << i;
 		}
-
-		for (auto &i : PTC1)
+		for (auto &i : C)
 		{
 			streamPlotTaskcMax << i;
 		}
-		for (auto &i : PTC)
+		for (auto &i : d)
+		{
+			streamPlotMachcMax << i;
+		}
+		for (auto &i : D)
 		{
 			streamPlotTaskcMax << i;
 		}
-		for (auto &i : PTCP)
-		{
-			streamPlotTaskcMax << i;
-		}
-
 
 		for (auto &i : resultsS)
 		{
@@ -616,28 +759,52 @@ void printResultsToFile(std::vector <unsigned int> &cMax, std::vector <std::stri
 				timesS.push_back(std::to_string(times[i]) + " &");
 			}
 
-			switch (i % 2)
+			switch (i % algorithmsCount)
 			{
 			case 0: //NEH
 				if (tempMach < Vmachine[k - 1])
 				{
-					PMT.push_back("(" + std::to_string(Vmachine[k - 1]) + "," + std::to_string(times[i]) + ")\n");
+					aa.push_back("(" + std::to_string(Vmachine[k - 1]) + "," + std::to_string(times[i]) + ")\n");
 				}
 				if (Vmachine[k - 1] == 20 && tempTask < Vtask[k - 1])
 				{
-					PTT.push_back("(" + std::to_string(Vtask[k - 1]) + "," + std::to_string(times[i]) + ")\n");
+					AA.push_back("(" + std::to_string(Vtask[k - 1]) + "," + std::to_string(times[i]) + ")\n");
 				}
 				break;
 
 			case 1: //NEH Plus
 				if (tempMach < Vmachine[k - 1])
 				{
-					PMTP.push_back("(" + std::to_string(Vmachine[k - 1]) + "," + std::to_string(times[i]) + ")\n");
+					bb.push_back("(" + std::to_string(Vmachine[k - 1]) + "," + std::to_string(times[i]) + ")\n");
 					tempMach = Vmachine[k - 1];
 				}
 				if (Vmachine[k - 1] == 20 && tempTask < Vtask[k - 1])
 				{
-					PTTP.push_back("(" + std::to_string(Vtask[k - 1]) + "," + std::to_string(times[i]) + ")\n");
+					BB.push_back("(" + std::to_string(Vtask[k - 1]) + "," + std::to_string(times[i]) + ")\n");
+					tempTask = Vtask[k - 1];
+				}
+				break;
+			case 2: //NEH Plus
+				if (tempMach < Vmachine[k - 1])
+				{
+					cc.push_back("(" + std::to_string(Vmachine[k - 1]) + "," + std::to_string(times[i]) + ")\n");
+					tempMach = Vmachine[k - 1];
+				}
+				if (Vmachine[k - 1] == 20 && tempTask < Vtask[k - 1])
+				{
+					CC.push_back("(" + std::to_string(Vtask[k - 1]) + "," + std::to_string(times[i]) + ")\n");
+					tempTask = Vtask[k - 1];
+				}
+				break;
+			case 3: //NEH Plus
+				if (tempMach < Vmachine[k - 1])
+				{
+					dd.push_back("(" + std::to_string(Vmachine[k - 1]) + "," + std::to_string(times[i]) + ")\n");
+					tempMach = Vmachine[k - 1];
+				}
+				if (Vmachine[k - 1] == 20 && tempTask < Vtask[k - 1])
+				{
+					DD.push_back("(" + std::to_string(Vtask[k - 1]) + "," + std::to_string(times[i]) + ")\n");
 					tempTask = Vtask[k - 1];
 				}
 				break;
@@ -647,30 +814,47 @@ void printResultsToFile(std::vector <unsigned int> &cMax, std::vector <std::stri
 			}
 		}
 
-		PMT.push_back("};\n");
-		PTT.push_back("};\n");
-		PMTP.push_back("}\n;");
-		PTTP.push_back("}\n;");
+		aa.push_back("};\n");
+		AA.push_back("};\n");
+		bb.push_back("};\n");
+		BB.push_back("};\n");
+		cc.push_back("};\n");
+		CC.push_back("};\n");
+		dd.push_back("};\n");
+		DD.push_back("};\n");
 
-		for (auto &i : PMT)
+		for (auto &i : aa)
 		{
 			streamPlotMachTime << i;
 		}
-		for (auto &i : PMTP)
+		for (auto &i : AA)
+		{
+			streamPlotTaskTime << i;
+		}
+		for (auto &i : bb)
 		{
 			streamPlotMachTime << i;
 		}
-
-		for (auto &i : PTT)
+		for (auto &i : BB)
 		{
 			streamPlotTaskTime << i;
 		}
-		for (auto &i : PTTP)
+		for (auto &i : cc)
+		{
+			streamPlotMachTime << i;
+		}
+		for (auto &i : CC)
 		{
 			streamPlotTaskTime << i;
 		}
-
-
+		for (auto &i : dd)
+		{
+			streamPlotMachTime << i;
+		}
+		for (auto &i : DD)
+		{
+			streamPlotTaskTime << i;
+		}
 		for (auto &i : timesS)
 		{
 			streamWriteTimes << i;
@@ -682,27 +866,33 @@ void printResultsToFile(std::vector <unsigned int> &cMax, std::vector <std::stri
 int main()
 {
 	srand((unsigned)time(NULL));
-	//std::vector <std::string> filenames;
+	
+	std::vector <std::string> filenames;
 	std::vector <unsigned int> cMax, sizes, Vtask, Vmachine;
-	//std::vector <double> times;
+	std::vector <double> times;
+	
+	const double temperature = 100.0;
+	const double coolingCoefficient = 0.75;
+	const double zero = 1.0E-10;
+	const int repsAmount = 250;
 
-	//loadFilenames("data/filenames.txt", filenames);
-	//calcEverything(filenames, cMax, 120, times, Vtask, Vmachine);
-	//printResultsToFile(cMax, filenames, Vtask, Vmachine, times);
+	loadFilenames("data/filenames.txt", filenames);
+	calcEverything(filenames, cMax, 120, times, Vtask, Vmachine, temperature, coolingCoefficient, zero,repsAmount);
+	printResultsToFile(cMax, filenames, Vtask, Vmachine, times);
 
+	/*
 	std::vector <machine> container;
 	loadContainer("data/ta001.txt", container, Vtask, Vmachine);
 
-	int save = INT_MAX;
 	while (1)
 	{
-		int raz = SA(container, 100.0, 0.95, 1.0E-1);
-		if (raz < save)
-		{
-			save = raz;
-			std::cout << save << std::endl;
-		}
+		std::cout << AverageSASwap(container, temperature, coolingCoefficient, zero, repsAmount);
+		std::cout << std::endl;
+		std::cout << AverageSAInsert(container, temperature, coolingCoefficient, zero, repsAmount);
+		std::cout << std::endl;
 	}
+
+	*/
 	system("pause");
 	return 0;
 }
